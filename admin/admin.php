@@ -22,7 +22,7 @@ class Admin {
 	}
 
 	public function enqueue_admin_scripts() {
-		wp_register_style( 'dcmp_admin_styles', WPDC_WISHLIST_URL . '/admin/css/admin-styles.css' );
+		wp_register_style( 'dcmp_admin_styles', WPDC_MEMBERPRESS_URL . '/admin/css/admin-styles.css' );
 		wp_enqueue_style( 'dcmp_admin_styles' );
 	}
 

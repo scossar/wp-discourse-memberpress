@@ -6,6 +6,11 @@ use WPDiscourse\Utilities\Utilities as DiscourseUtilities;
 
 trait DiscourseMemberPressUtilities {
 
+	public function get_options() {
+
+		return DiscourseUtilities::get_options();
+	}
+
 	public function get_memberpress_levels() {
 
 		return $this->get_levels_data();
@@ -19,11 +24,12 @@ trait DiscourseMemberPressUtilities {
 			return new \WP_Error( 'discourse_configuration_error', "Unable to retrieve Discourse groups. The WP Discourse plugin isn't properly configured." );
 		}
 
-		$force_update = ! empty( $dcmp_options['dcmp_update_discourse_groups'] ) ? $dcmp_options['dcmp_update_discourse_groups'] : 0;
+		$groups = ! empty( $dcmp_options['dcmp_discourse_groups'] ) ? $dcmp_options['dcmp_discourse_groups'] : null;
 
-		$parsed_data = get_transient( 'wpdc_groups_data' );
+		$force_update = ! empty( $dcmp_options['dcmp_update_discourse_groups'] );
 
-		if ( empty( $parsed_data ) || empty( $parsed_data[0]['name'] ) || $force_update ) {
+
+		if ( ! $groups || $force_update ) {
 			$raw_groups_data = $this->get_discourse_groups_data();
 			$parsed_data     = [];
 
@@ -38,14 +44,17 @@ trait DiscourseMemberPressUtilities {
 				}
 			}
 
-			set_transient( 'wpdc_groups_data', $parsed_data, 10 * MINUTE_IN_SECONDS );
+			if ( ! empty( $parsed_data ) ) {
+				$dcmp_options['dcmp_discourse_groups'] = $parsed_data;
+				// Reset the 'dcmp_update_discourse_groups' option so that the transient is used.
+				$dcmp_options['dcmp_update_discourse_groups'] = 0;
+				update_option( 'dcmp_groups', $dcmp_options );
 
-			// Reset the 'dcmp_update_discourse_groups' option so that the transient is used.
-			$dcmp_options['dcmp_update_discourse_groups'] = 0;
-			update_option( 'dcmp_groups', $dcmp_options );
+				return $parsed_data;
+			}
 		}
 
-		return $parsed_data;
+		return $groups;
 	}
 
 	public function lookup_or_create_discourse_user( $user_id, $force_email_verification ) {
@@ -65,9 +74,9 @@ trait DiscourseMemberPressUtilities {
 		$api_key      = $this->get_connection_option( 'api-key' );
 		$api_username = $this->get_connection_option( 'publish-username' );
 
-		if ( ! $base_url && $api_key && $api_username ) {
+		if ( ! ( $base_url && $api_key && $api_username ) ) {
 
-			return new \WP_Error( 'discourse_configuration_error', 'The Discourse URL has not been set.' );
+			return new \WP_Error( 'discourse_configuration_error', 'The WP Discourse plugin needs to be configured.' );
 		}
 
 		$groups_url = $base_url . '/groups.json';
@@ -96,20 +105,14 @@ trait DiscourseMemberPressUtilities {
 		return $groups;
 	}
 
-	protected function get_levels_data() {
+	public function get_levels_data() {
+		$levels = null;
 
-		if ( function_exists( 'wlmapi_get_levels' ) ) {
-			$response = wlmapi_get_levels();
-			if ( ! empty( $response['levels'] ) && ! empty( $response['levels']['level'] ) ) {
-
-				return $response['levels']['level'];
-			} else {
-
-				return null;
-			}
+		if ( function_exists( 'pmpro_getAllLevels' ) ) {
+			$levels = pmpro_getAllLevels();
 		}
 
-		return null;
+		return $levels;
 	}
 
 
@@ -233,6 +236,6 @@ trait DiscourseMemberPressUtilities {
 			return $connection_options[ $option ];
 		}
 
-		return false;
+		return null;
 	}
 }
